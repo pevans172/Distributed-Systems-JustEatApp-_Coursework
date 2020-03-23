@@ -1,0 +1,111 @@
+from __future__ import print_function
+import Pyro4
+import sys
+import postcodes_io_api
+
+
+@Pyro4.expose
+@Pyro4.behavior(instance_mode="single")
+class Server(object):
+    def __init__(self):
+        self.orders = {}
+        self.count = 0
+
+    def store(self, name, numberOfMeals, houseNumber, postcode):
+        self.orders[self.count] = [name, numberOfMeals, houseNumber, postcode]
+        self.count += 1
+        # check the postcode validity
+        api = postcodes_io_api.Api(debug_http=True)
+        data = api.get_postcode(postcode)
+        if data['status'] != 200:
+            # send back info that its wrong
+            try:
+                frontEnd = Pyro4.Proxy("PYRONAME:front_end")
+                frontEnd.checkOnline()
+                msg = f"For order to: {name}\n{postcode} is not a valid postcode, please try again."
+                self.send(frontEnd, "PostcodeERROR", msg)
+                print()
+                print("Order declined, invalid Postcode.")
+                print()
+            except:
+                print("Front-end server is down.")
+                print()
+        else:
+            postcode += '\n\t\t' + str(data['result']['primary_care_trust']) + '\n\t\t' + str(data['result']['region']) + '\n\t\t' + str(data['result']['country'])
+            # print out details
+            if numberOfMeals == 1:
+                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meal\nDelivering to: {postcode}"
+            else:
+                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meals\nDelivering to: {postcode}"
+            print(msg)
+
+            # send confirmation to front end
+            try:
+                frontEnd = Pyro4.Proxy("PYRONAME:front_end")
+                frontEnd.checkOnline()
+                self.send(frontEnd, "confirmation", msg)
+                print("Order confirmed.")
+                print()
+            except:
+                print("Front-end server is down.")
+                print()
+
+            # update data across all servers
+            try:
+                self.attemptServersDataUpdate()
+                print(f"Data updated across active servers.")
+                print()
+            except:
+                pass
+        print()
+        print("Listening for new requests...")
+        print()
+
+    def checkOnline(self):
+        return True
+
+    def attemptServersDataUpdate(self):
+        # send to primary 2
+        try:
+            p2 = Pyro4.Proxy("PYRONAME:primary2")
+            p2.checkOnline()
+            self.send(p2, "update", (self.count, self.orders))
+        except:
+            pass
+        # send to primary 3
+        try:
+            p3 = Pyro4.Proxy("PYRONAME:primary3")
+            p3.checkOnline()
+            self.send(p3, "update", (self.count, self.orders))
+        except:
+            pass
+
+    def send(self, server, msg1, msg2):
+        # in sending we are asking a server to recieve a msg
+        server.recieve(msg1, msg2)
+
+    def recieve(self, msg1, msg2):
+        if msg1 == "update":
+            self.count = msg2[0]
+            self.orders = msg2[1]
+            msg = f"Server data has been updated."
+            print(msg)
+            print()
+        elif msg1 == "store":
+            self.store(msg2[0], msg2[1], msg2[2], msg2[3])
+        else:
+            print("Unexpected return value")
+            print()
+            sys.exit()
+
+
+def main():
+    Pyro4.Daemon.serveSimple(
+        {
+            Server: "primary1"
+        },
+        ns=True)
+
+
+if __name__ == "__main__":
+    main()
