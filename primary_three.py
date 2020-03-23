@@ -12,8 +12,6 @@ class Server(object):
         self.count = 0
 
     def store(self, name, numberOfMeals, houseNumber, postcode):
-        self.orders[self.count] = [name, numberOfMeals, houseNumber, postcode]
-        self.count += 1
         # check the postcode validity
         api = postcodes_io_api.Api(debug_http=True)
         data = api.get_postcode(postcode)
@@ -34,9 +32,9 @@ class Server(object):
             postcode += '\n\t\t' + str(data['result']['primary_care_trust']) + '\n\t\t' + str(data['result']['region']) + '\n\t\t' + str(data['result']['country'])
             # print out details
             if numberOfMeals == 1:
-                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meal\nDelivering to: {postcode}"
+                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meal\nDelivering to: \n\t\tHouse Number {houseNumber}\n\t\t{postcode}"
             else:
-                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meals\nDelivering to: {postcode}"
+                msg = f"\nOrder placed:\nCustomer: {name}\nOrder: {numberOfMeals} meals\nDelivering to: \n\t\tHouse Number {houseNumber}\n\t\t{postcode}"
             print(msg)
 
             # send confirmation to front end
@@ -46,6 +44,9 @@ class Server(object):
                 self.send(frontEnd, "confirmation", msg)
                 print("Order confirmed.")
                 print()
+                # update our store once the order confirmed
+                self.orders[self.count] = [name, numberOfMeals, houseNumber, postcode]
+                self.count += 1
             except:
                 print("Front-end server is down.")
                 print()
@@ -55,6 +56,10 @@ class Server(object):
                 self.attemptServersDataUpdate()
                 print(f"Data updated across active servers.")
                 print()
+                # show the upated list
+                print("Current list of orders confirmed:")
+                for i in range(len(self.orders)):
+                    print(f"Customer: {self.orders[i][0]}, Meals: {self.orders[i][1]}, Delivering to: \n\t\tHouse Number {self.orders[i][2]}\n\t\t{self.orders[i][3]}")
             except:
                 pass
         print()
@@ -91,6 +96,10 @@ class Server(object):
             msg = f"Server data has been updated."
             print(msg)
             print()
+            # show the upated list
+            print("Current list of orders confirmed:")
+            for i in range(len(self.orders)):
+                print(f"Customer: {self.orders[i][0]}, Meals: {self.orders[i][1]}, Delivering to: \n\t\tHouse Number {self.orders[i][2]}\n\t\t{self.orders[i][3]}")
         elif msg1 == "store":
             self.store(msg2[0], msg2[1], msg2[2], msg2[3])
         else:

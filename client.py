@@ -26,6 +26,3 @@ except:
     # end when there is an error
     print("Server is down, please try again later.")
     print()
-
-# python -m Pyro4.naming
-# python -m Pyro4.nsc list

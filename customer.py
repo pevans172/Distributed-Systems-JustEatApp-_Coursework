@@ -7,7 +7,11 @@ class Customer(object):
         self.order = [0, 1, 2, 3]
 
     def setName(self):
-        item = input("What's your name: ").strip()
+        while True:
+            item = input("What's your name: ").strip()
+            if item != "":
+                break
+            print("Please insert a name.")
         self.order[0] = item
 
     def setNumberOfMeals(self):
@@ -49,7 +53,7 @@ class Customer(object):
         self.order[2] = item
 
     def setPostcode(self):
-        item = input("Please insert your 6 character postcode: ").strip()
+        item = input("Please insert your postcode: ").strip()
         # item.replace(" ", "")
         self.order[3] = item
 
